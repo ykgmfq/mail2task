@@ -8,6 +8,9 @@ on:
   # patches even when the source has not changed.
   schedule:
     - cron: "0 4 1 * *"
+  # Allow rebuilding on demand from the Actions tab, for example to pull in a
+  # base image patch without waiting for the monthly run.
+  workflow_dispatch:
 
 jobs:
   build-and-push:
