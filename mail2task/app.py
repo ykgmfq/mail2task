@@ -14,7 +14,7 @@ from todoist_api_python.api import TodoistAPI
 from . import mail
 from .enrich import enrich_with_ollama
 from .models import Config
-from .tasks import add_attachment_comments, build_comment, create_task
+from .tasks import add_attachment_comments, build_description, create_task
 
 logging.basicConfig(
     level=os.environ.get("LOG_LEVEL", "INFO").upper(),
@@ -122,8 +122,8 @@ def process_mailbox(ctx: Context) -> None:
             try:
                 log.info("Processing: %s (from %s)", email.subject, email.sender)
                 fields = enrich_with_ollama(ctx.ollama, ctx.config.ollama_model, email)
-                comment = build_comment(email)
-                task_id = create_task(ctx.todoist, ctx.project_id, fields, comment)
+                description = build_description(email)
+                task_id = create_task(ctx.todoist, ctx.project_id, fields, description)
                 # Mark seen immediately so a failure below cannot re-create the
                 # task next cycle; UNSEEN search then skips this message.
                 mail.mark_seen(imap, msg_id)

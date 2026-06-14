@@ -105,7 +105,7 @@ def _patch_pipeline(monkeypatch, imap, calls, archive_raises=False):
     monkeypatch.setattr(app, "enrich_with_ollama", fake_enrich)
     monkeypatch.setattr(app, "create_task", fake_create_task)
     monkeypatch.setattr(app, "add_attachment_comments", fake_attach)
-    monkeypatch.setattr(app, "build_comment", lambda email: "comment")
+    monkeypatch.setattr(app, "build_description", lambda email: "description")
 
 
 def test_process_mailbox_marks_seen_after_create_before_archive(monkeypatch):

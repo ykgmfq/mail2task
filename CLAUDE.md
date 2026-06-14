@@ -7,8 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **mail2task** is a long-running service that polls an IMAP folder, uses a local **Ollama** model to turn every email into a clean Todoist task, then marks the email seen and moves it to an archive folder.
 For each email the model rewrites the subject into a concise actionable title and extracts an optional date.
 The extracted date becomes the Todoist **deadline**; the task's **due date** is always set to today so it surfaces immediately for manual oversight, and the task carries a `mail2task` label.
-A task gets **priority 2 when a deadline was found**, otherwise Todoist's default.
-The sender and a body preview are attached as a Todoist comment.
+A task gets the **highest priority when a deadline was found**, otherwise Todoist's default.
+The sender and a body preview are set as the task's description.
 The loop runs continuously, polling every `POLL_INTERVAL` seconds.
 
 ## Running

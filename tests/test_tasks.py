@@ -1,29 +1,29 @@
-"""Tests for comment building and Todoist task creation in mail2task.tasks."""
+"""Tests for description building and Todoist task creation in mail2task.tasks."""
 
 from datetime import date, timedelta
 from types import SimpleNamespace
 
 from mail2task.enrich import TaskFields
 from mail2task.mail import Email
-from mail2task.tasks import build_comment, create_task
+from mail2task.tasks import build_description, create_task
 
 
-def test_build_comment_with_body():
-    comment = build_comment(Email(subject="s", sender="Alice <a@x.com>", body="hello"))
-    assert "**From:** Alice <a@x.com>" in comment
-    assert "hello" in comment
-    assert "truncated" not in comment
+def test_build_description_with_body():
+    description = build_description(Email(subject="s", sender="Alice <a@x.com>", body="hello"))
+    assert "**From:** Alice <a@x.com>" in description
+    assert "hello" in description
+    assert "truncated" not in description
 
 
-def test_build_comment_no_body():
-    comment = build_comment(Email(subject="s", sender="a@x.com", body=""))
-    assert comment == "**From:** a@x.com"
+def test_build_description_no_body():
+    description = build_description(Email(subject="s", sender="a@x.com", body=""))
+    assert description == "**From:** a@x.com"
 
 
-def test_build_comment_truncates_long_body():
-    comment = build_comment(Email(subject="s", sender="a", body="x" * 3000))
-    assert "*(truncated)*" in comment
-    assert comment.count("x") == 2000
+def test_build_description_truncates_long_body():
+    description = build_description(Email(subject="s", sender="a", body="x" * 3000))
+    assert "*(truncated)*" in description
+    assert description.count("x") == 2000
 
 
 class _FakeTodoist:
@@ -43,17 +43,19 @@ def test_create_task_with_deadline():
     api = _FakeTodoist()
     deadline = (date.today() + timedelta(days=5)).isoformat()
     fields = TaskFields(title="Do it", deadline=deadline)
-    task_id = create_task(api, "p1", fields, "a comment")
+    task_id = create_task(api, "p1", fields, "a description")
 
     assert task_id == "task-1"
     kw = api.add_task_kwargs
     assert kw["content"] == "Do it"
+    assert kw["description"] == "a description"
     assert kw["project_id"] == "p1"
-    assert kw["priority"] == 2
+    assert kw["priority"] == 4
     assert kw["due_date"] == date.today()
     assert kw["deadline_date"] == date.fromisoformat(deadline)
     assert kw["labels"] == ["mail2task"]
-    assert api.comments == [("a comment", {"task_id": "task-1"})]
+    # The body now lives in the description, so no comment is posted here.
+    assert api.comments == []
 
 
 def test_create_task_without_deadline_uses_defaults():

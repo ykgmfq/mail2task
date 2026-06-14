@@ -16,8 +16,8 @@ _LABEL = "mail2task"
 _UPLOAD_TIMEOUT = 60  # seconds; never block the loop on a stalled upload
 
 
-def build_comment(email: Email) -> str:
-    """Build the task comment: sender plus a truncated body preview."""
+def build_description(email: Email) -> str:
+    """Build the task description: sender plus a truncated body preview."""
     parts = [f"**From:** {email.sender}"]
     if email.body:
         preview = email.body[:2000]
@@ -59,11 +59,12 @@ def add_attachment_comments(
             log.warning("Failed to attach '%s'", att.filename, exc_info=True)
 
 
-def create_task(api: TodoistAPI, project_id: str | None, fields: TaskFields, comment: str) -> str:
-    """Create a Todoist task with a comment; return the new task id."""
+def create_task(api: TodoistAPI, project_id: str | None, fields: TaskFields, description: str) -> str:
+    """Create a Todoist task carrying the sender and body preview as its description; return the new task id."""
     deadline = date.fromisoformat(fields.deadline) if fields.deadline else None
     task = api.add_task(
         fields.title,
+        description=description,  # sender and body preview, shown under the title
         project_id=project_id or None,
         # Flag deadline-bearing tasks with the API's highest priority; else
         # default. The API scale is inverted from the UI (4 is urgent, 1 is
@@ -73,5 +74,4 @@ def create_task(api: TodoistAPI, project_id: str | None, fields: TaskFields, com
         deadline_date=deadline,  # the date extracted from the email, if any
         labels=[_LABEL],
     )
-    api.add_comment(comment, task_id=task.id)
     return task.id
