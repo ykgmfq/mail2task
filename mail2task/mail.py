@@ -10,30 +10,14 @@ import email.header
 import imaplib
 import logging
 from contextlib import contextmanager
-from dataclasses import dataclass, field
 from email.utils import parseaddr
 from typing import Iterator
 
 from bs4 import BeautifulSoup
 
+from .models import Config, Email, EmailAttachment
+
 log = logging.getLogger(__name__)
-
-DEFAULT_IMAP_TIMEOUT = 30  # seconds; a hung socket must not freeze the poll loop
-
-
-@dataclass
-class EmailAttachment:
-    filename: str
-    content_type: str
-    data: bytes
-
-
-@dataclass
-class Email:
-    subject: str
-    sender: str  # display name + address, decoded
-    body: str
-    attachments: list[EmailAttachment] = field(default_factory=list)
 
 
 def decode_header_value(raw) -> str:
@@ -115,17 +99,16 @@ def get_text_body(msg) -> str:
 
 
 @contextmanager
-def connect(cfg: dict):
+def connect(config: Config):
     """Open an authenticated IMAP4_SSL connection and select the target folder."""
-    host = cfg["IMAP_HOST"]
-    port = int(cfg.get("IMAP_PORT", 993))
-    user = cfg["IMAP_USER"]
-    folder = cfg["IMAP_FOLDER"]
-    timeout = int(cfg.get("IMAP_TIMEOUT", DEFAULT_IMAP_TIMEOUT))
+    host = config.imap_host
+    port = config.imap_port
+    user = config.imap_user
+    folder = config.imap_folder
 
     log.info("Connecting to %s:%d as %s", host, port, user)
-    with imaplib.IMAP4_SSL(host, port, timeout=timeout) as imap:
-        imap.login(user, cfg["IMAP_PASSWORD"])
+    with imaplib.IMAP4_SSL(host, port, timeout=config.imap_timeout) as imap:
+        imap.login(user, config.imap_password)
         status, _ = imap.select(f'"{folder}"')
         if status != "OK":
             raise RuntimeError(f"Could not select folder '{folder}'")

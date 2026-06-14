@@ -43,7 +43,7 @@ def test_create_task_with_deadline():
     api = _FakeTodoist()
     deadline = (date.today() + timedelta(days=5)).isoformat()
     fields = TaskFields(title="Do it", deadline=deadline)
-    task_id = create_task(api, {"TODOIST_PROJECT_ID": "p1"}, fields, "a comment")
+    task_id = create_task(api, "p1", fields, "a comment")
 
     assert task_id == "task-1"
     kw = api.add_task_kwargs
@@ -59,7 +59,7 @@ def test_create_task_with_deadline():
 def test_create_task_without_deadline_uses_defaults():
     api = _FakeTodoist()
     fields = TaskFields(title="No date", deadline=None)
-    create_task(api, {}, fields, "c")
+    create_task(api, None, fields, "c")
 
     kw = api.add_task_kwargs
     assert kw["priority"] is None

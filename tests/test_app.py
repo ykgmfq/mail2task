@@ -1,6 +1,7 @@
 """Tests for config loading and the process_mailbox idempotency boundary."""
 
 import contextlib
+import threading
 
 import pytest
 
@@ -29,8 +30,8 @@ def _set_env(monkeypatch, **extra):
 def test_load_config_ok(monkeypatch):
     _set_env(monkeypatch)
     cfg = app.load_config()
-    assert cfg["IMAP_HOST"] == "h"
-    assert cfg["POLL_INTERVAL"] == "60"  # default applied
+    assert cfg.imap_host == "h"
+    assert cfg.poll_interval == 60  # default applied, parsed to int
 
 
 def test_load_config_missing_key_exits(monkeypatch):
@@ -44,6 +45,21 @@ def test_load_config_bad_int_exits(monkeypatch):
     _set_env(monkeypatch, POLL_INTERVAL="soon")
     with pytest.raises(SystemExit):
         app.load_config()
+
+
+def _ctx():
+    """A Context whose only meaningful field is the archive folder and model;
+    the clients are faked out via monkeypatch in the tests below."""
+    config = app.Config(
+        imap_host="h",
+        imap_user="u",
+        imap_password="p",
+        imap_folder="INBOX",
+        imap_archive_folder="Archive",
+        todoist_api_token="t",
+        ollama_model="m",
+    )
+    return app.Context(config=config, ollama=None, todoist=None, project_id=None)
 
 
 class _FakeIMAP:
@@ -97,7 +113,7 @@ def test_process_mailbox_marks_seen_after_create_before_archive(monkeypatch):
     imap = _FakeIMAP()
     _patch_pipeline(monkeypatch, imap, calls)
 
-    app.process_mailbox({"IMAP_ARCHIVE_FOLDER": "Archive"}, None, "m", None)
+    app.process_mailbox(_ctx())
 
     assert calls == ["create_task", "mark_seen", "attach", "archive"]
     assert calls.index("mark_seen") < calls.index("archive")
@@ -110,9 +126,23 @@ def test_process_mailbox_archive_failure_does_not_recreate_task(monkeypatch):
     _patch_pipeline(monkeypatch, imap, calls, archive_raises=True)
 
     # The archive error is isolated per message and must not abort the cycle.
-    app.process_mailbox({"IMAP_ARCHIVE_FOLDER": "Archive"}, None, "m", None)
+    app.process_mailbox(_ctx())
 
     # Task created once, and seen was set before the archive blew up, so the
     # next cycle's UNSEEN search would skip this message — no duplicate.
     assert calls.count("create_task") == 1
     assert calls.index("mark_seen") < calls.index("archive")
+
+
+def test_poll_loop_stops_when_event_set(monkeypatch):
+    stop = threading.Event()
+    cycles = []
+
+    def fake_process(ctx):
+        cycles.append(ctx)
+        stop.set()  # ask the loop to stop after this one cycle
+
+    monkeypatch.setattr(app, "process_mailbox", fake_process)
+    app.poll_loop(_ctx(), stop, interval=0)
+
+    assert len(cycles) == 1  # ran exactly one cycle, then observed the stop

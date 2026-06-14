@@ -7,8 +7,7 @@ import requests
 from todoist_api_python.api import TodoistAPI
 from todoist_api_python.models import Attachment
 
-from .enrich import TaskFields
-from .mail import Email, EmailAttachment
+from .models import Email, EmailAttachment, TaskFields
 
 log = logging.getLogger(__name__)
 
@@ -48,25 +47,24 @@ def _upload_file(api_token: str, att: EmailAttachment) -> Attachment:
 
 
 def add_attachment_comments(
-    api: TodoistAPI, cfg: dict, task_id: str, attachments: list[EmailAttachment]
+    api: TodoistAPI, api_token: str, task_id: str, attachments: list[EmailAttachment]
 ) -> None:
     """Upload each email attachment and post it as a comment on the task."""
-    token = cfg["TODOIST_API_TOKEN"]
     for att in attachments:
         try:
-            todoist_att = _upload_file(token, att)
+            todoist_att = _upload_file(api_token, att)
             api.add_comment(att.filename, task_id=task_id, attachment=todoist_att)
             log.info("Attached '%s' to task %s", att.filename, task_id)
         except Exception:
             log.warning("Failed to attach '%s'", att.filename, exc_info=True)
 
 
-def create_task(api: TodoistAPI, cfg: dict, fields: TaskFields, comment: str) -> str:
+def create_task(api: TodoistAPI, project_id: str | None, fields: TaskFields, comment: str) -> str:
     """Create a Todoist task with a comment; return the new task id."""
     deadline = date.fromisoformat(fields.deadline) if fields.deadline else None
     task = api.add_task(
         fields.title,
-        project_id=cfg.get("TODOIST_PROJECT_ID") or None,
+        project_id=project_id or None,
         priority=2 if deadline else None,  # flag deadline-bearing tasks; else default
         due_date=date.today(),  # surface today for manual oversight
         deadline_date=deadline,  # the date extracted from the email, if any
