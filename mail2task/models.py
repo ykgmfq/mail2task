@@ -74,7 +74,7 @@ class Config:
     ollama_model: str
     imap_port: int = 993
     imap_timeout: int = 30
-    ollama_timeout: int = 120
+    ollama_timeout: int = 600
     poll_interval: int = 60
     ollama_host: HttpUrl = HttpUrl("http://localhost:11434")
     todoist_project_name: str | None = None

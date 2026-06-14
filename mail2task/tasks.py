@@ -65,7 +65,10 @@ def create_task(api: TodoistAPI, project_id: str | None, fields: TaskFields, com
     task = api.add_task(
         fields.title,
         project_id=project_id or None,
-        priority=2 if deadline else None,  # flag deadline-bearing tasks; else default
+        # Flag deadline-bearing tasks with the API's highest priority; else
+        # default. The API scale is inverted from the UI (4 is urgent, 1 is
+        # normal), so the elevated value is 4.
+        priority=4 if deadline else None,
         due_date=date.today(),  # surface today for manual oversight
         deadline_date=deadline,  # the date extracted from the email, if any
         labels=[_LABEL],
