@@ -6,11 +6,11 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }
 dependencies = [
-    "todoist-api-python>=3.1,<4",
+    "todoist-api-python>=4.0.0,<5",
     "ollama",
-    "pydantic>=2",
-    "requests>=2.32",
-    "beautifulsoup4>=4.12",
+    "pydantic>=2.13.4",
+    "requests>=2.34.2",
+    "beautifulsoup4>=4.15.0",
 ]
 
 [project.optional-dependencies]
