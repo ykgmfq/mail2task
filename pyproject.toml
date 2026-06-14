@@ -1,0 +1,29 @@
+[project]
+name = "mail2task"
+dynamic = ["version"]
+description = "Poll an IMAP folder, enrich each email with Ollama, and create Todoist tasks."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+dependencies = [
+    "todoist-api-python>=3.1,<4",
+    "ollama",
+    "pydantic>=2",
+    "requests>=2.32",
+]
+
+[project.scripts]
+mail2task = "mail2task.app:main"
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "mail2task/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["mail2task"]

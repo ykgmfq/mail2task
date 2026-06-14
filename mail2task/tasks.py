@@ -1,0 +1,74 @@
+"""Todoist task creation via the official todoist-api-python SDK."""
+
+import logging
+from datetime import date
+
+import requests
+from todoist_api_python.api import TodoistAPI
+from todoist_api_python.models import Attachment
+
+from .enrich import TaskFields
+from .mail import Email, EmailAttachment
+
+log = logging.getLogger(__name__)
+
+_UPLOAD_URL = "https://api.todoist.com/api/v1/uploads"
+_LABEL = "mail2task"
+
+
+def build_comment(email: Email) -> str:
+    """Build the task comment: sender plus a truncated body preview."""
+    parts = [f"**From:** {email.sender}"]
+    if email.body:
+        preview = email.body[:2000]
+        if len(email.body) > 2000:
+            preview += "\n\n*(truncated)*"
+        parts.append(f"\n---\n{preview}")
+    return "\n".join(parts)
+
+
+def _upload_file(api_token: str, att: EmailAttachment) -> Attachment:
+    """Upload a file to Todoist and return an SDK Attachment object."""
+    resp = requests.post(
+        _UPLOAD_URL,
+        headers={"Authorization": f"Bearer {api_token}"},
+        files={"file": (att.filename, att.data, att.content_type)},
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    return Attachment(
+        resource_type="file",
+        file_name=data["file_name"],
+        file_url=data["file_url"],
+        file_type=data["file_type"],
+        file_size=data.get("file_size"),
+    )
+
+
+def add_attachment_comments(
+    api: TodoistAPI, cfg: dict, task_id: str, attachments: list[EmailAttachment]
+) -> None:
+    """Upload each email attachment and post it as a comment on the task."""
+    token = cfg["TODOIST_API_TOKEN"]
+    for att in attachments:
+        try:
+            todoist_att = _upload_file(token, att)
+            api.add_comment(att.filename, task_id=task_id, attachment=todoist_att)
+            log.info("Attached '%s' to task %s", att.filename, task_id)
+        except Exception:
+            log.warning("Failed to attach '%s'", att.filename, exc_info=True)
+
+
+def create_task(api: TodoistAPI, cfg: dict, fields: TaskFields, comment: str) -> str:
+    """Create a Todoist task with a comment; return the new task id."""
+    deadline = date.fromisoformat(fields.deadline) if fields.deadline else None
+    task = api.add_task(
+        fields.title,
+        project_id=cfg.get("TODOIST_PROJECT_ID") or None,
+        priority=2 if deadline else None,  # flag deadline-bearing tasks; else default
+        due_date=date.today(),  # surface today for manual oversight
+        deadline_date=deadline,  # the date extracted from the email, if any
+        labels=[_LABEL],
+    )
+    api.add_comment(comment, task_id=task.id)
+    return task.id

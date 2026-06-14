@@ -1,0 +1,15 @@
+.git
+.github
+.devcontainer
+.gitignore
+*.md
+!README.md
+docker-compose.yml
+.env
+**/__pycache__
+*.pyc
+.venv
+venv
+build
+dist
+*.egg-info

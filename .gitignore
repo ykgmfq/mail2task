@@ -6,6 +6,9 @@ __pycache__/
 # C extensions
 *.so
 
+# hatch-vcs generated version file
+mail2task/_version.py
+
 # Distribution / packaging
 .Python
 build/
