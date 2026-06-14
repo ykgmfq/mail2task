@@ -14,9 +14,9 @@ from .enrich import enrich_with_ollama
 from .tasks import add_attachment_comments, build_comment, create_task
 
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s  %(levelname)-8s  %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
+    level=os.environ.get("LOG_LEVEL", "INFO").upper(),
+    # No timestamp: the journal records the time of each line, so emitting our own would only duplicate it.
+    format="%(levelname)-8s  %(message)s",
 )
 log = logging.getLogger(__name__)
 
