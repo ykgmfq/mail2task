@@ -24,10 +24,6 @@ jobs:
       - name: Derive image tags
         id: meta
         uses: docker/metadata-action@v5
-        env:
-          # Emit org.opencontainers.image.* on the image manifest AND the index,
-          # so GHCR shows the package description for both single- and multi-arch.
-          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
         with:
           images: ghcr.io/${{ github.repository_owner }}/mail2task
           tags: |
