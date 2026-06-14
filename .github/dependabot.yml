@@ -20,3 +20,10 @@ updates:
     directory: "/"
     schedule:
       interval: monthly
+    # Let a new base image release settle before proposing the bump, so the
+    # deployment never moves onto a brand-new Python feature release on its
+    # release day. A Python feature release (3.14 to 3.15) is a minor bump in
+    # semver terms, so the minor window governs Python upgrades.
+    cooldown:
+      semver-minor-days: 180
+      semver-major-days: 180
