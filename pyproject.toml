@@ -10,10 +10,17 @@ dependencies = [
     "ollama",
     "pydantic>=2",
     "requests>=2.32",
+    "beautifulsoup4>=4.12",
 ]
+
+[project.optional-dependencies]
+test = ["pytest"]
 
 [project.scripts]
 mail2task = "mail2task.app:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [build-system]
 requires = ["hatchling", "hatch-vcs"]

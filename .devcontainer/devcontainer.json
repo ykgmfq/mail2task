@@ -1,7 +1,7 @@
 {
   "name": "mail2task",
   "image": "mcr.microsoft.com/devcontainers/python:3.14",
-  "postCreateCommand": "pip install -e .",
+  "postCreateCommand": "pip install -e '.[test]'",
   "customizations": {
     "vscode": {
       "extensions": [

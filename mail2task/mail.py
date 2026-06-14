@@ -14,7 +14,11 @@ from dataclasses import dataclass, field
 from email.utils import parseaddr
 from typing import Iterator
 
+from bs4 import BeautifulSoup
+
 log = logging.getLogger(__name__)
+
+DEFAULT_IMAP_TIMEOUT = 30  # seconds; a hung socket must not freeze the poll loop
 
 
 @dataclass
@@ -60,18 +64,54 @@ def get_attachments(msg) -> list[EmailAttachment]:
     return result
 
 
-def get_text_body(msg) -> str:
-    """Extract plain-text body from an email.Message, handling multipart."""
-    if msg.is_multipart():
-        for part in msg.walk():
-            ct = part.get_content_type()
-            cd = str(part.get("Content-Disposition", ""))
-            if ct == "text/plain" and "attachment" not in cd:
-                charset = part.get_content_charset() or "utf-8"
-                return part.get_payload(decode=True).decode(charset, errors="replace").strip()
+def _decode_part(part) -> str:
+    """Decode a single MIME part's payload to text, tolerating missing payloads.
+
+    A declared charset may be empty or one Python does not know; fall back to
+    utf-8 with replacement so a malformed header never crashes processing.
+    """
+    data = part.get_payload(decode=True)
+    if not data:  # signed/empty/structural parts can decode to None
         return ""
-    charset = msg.get_content_charset() or "utf-8"
-    return msg.get_payload(decode=True).decode(charset, errors="replace").strip()
+    charset = part.get_content_charset() or "utf-8"
+    try:
+        return data.decode(charset, errors="replace")
+    except LookupError:
+        return data.decode("utf-8", errors="replace")
+
+
+def _html_to_text(html: str) -> str:
+    """Reduce HTML to readable plain text via a real parser (tolerant of malformed markup)."""
+    soup = BeautifulSoup(html, "html.parser")
+    for tag in soup(["script", "style"]):
+        tag.decompose()
+    return soup.get_text(separator="\n", strip=True)
+
+
+def get_text_body(msg) -> str:
+    """Extract a plain-text body, preferring text/plain and falling back to HTML.
+
+    Some messages carry only an HTML alternative; rather than yield an empty
+    body, strip its tags so the model still has something to work with.
+    """
+    plain_parts = []
+    html_parts = []
+    for part in msg.walk() if msg.is_multipart() else [msg]:
+        if part.is_multipart():
+            continue
+        if "attachment" in str(part.get("Content-Disposition", "")):
+            continue
+        ct = part.get_content_type()
+        if ct == "text/plain":
+            plain_parts.append(_decode_part(part))
+        elif ct == "text/html":
+            html_parts.append(_decode_part(part))
+
+    if any(p.strip() for p in plain_parts):
+        return "\n".join(plain_parts).strip()
+    if any(p.strip() for p in html_parts):
+        return _html_to_text("\n".join(html_parts)).strip()
+    return ""
 
 
 @contextmanager
@@ -81,9 +121,10 @@ def connect(cfg: dict):
     port = int(cfg.get("IMAP_PORT", 993))
     user = cfg["IMAP_USER"]
     folder = cfg["IMAP_FOLDER"]
+    timeout = int(cfg.get("IMAP_TIMEOUT", DEFAULT_IMAP_TIMEOUT))
 
     log.info("Connecting to %s:%d as %s", host, port, user)
-    with imaplib.IMAP4_SSL(host, port) as imap:
+    with imaplib.IMAP4_SSL(host, port, timeout=timeout) as imap:
         imap.login(user, cfg["IMAP_PASSWORD"])
         status, _ = imap.select(f'"{folder}"')
         if status != "OK":
@@ -92,8 +133,12 @@ def connect(cfg: dict):
 
 
 def iter_all(imap) -> Iterator[tuple[bytes, Email]]:
-    """Yield (msg_id, Email) for every message in the selected folder."""
-    status, data = imap.search(None, "ALL")
+    """Yield (msg_id, Email) for every unseen message in the selected folder.
+
+    Searching UNSEEN (rather than ALL) means a message whose archive failed
+    after its task was created is not picked up again, so no duplicate task.
+    """
+    status, data = imap.search(None, "UNSEEN")
     if status != "OK":
         raise RuntimeError("IMAP SEARCH command failed")
 

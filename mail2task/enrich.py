@@ -9,7 +9,7 @@ import logging
 from datetime import date
 
 import ollama
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from .mail import Email
 
@@ -27,6 +27,27 @@ SYSTEM = (
 class TaskFields(BaseModel):
     title: str  # short, imperative, actionable
     deadline: str | None  # ISO YYYY-MM-DD, or None
+
+    @field_validator("deadline")
+    @classmethod
+    def _drop_unusable_deadline(cls, value: str | None) -> str | None:
+        """Discard a deadline the model returned that is malformed or already past.
+
+        The model occasionally invents a date or emits a non-ISO string; a bad
+        value here would otherwise crash task creation, so we drop it rather than
+        let it through.
+        """
+        if not value:
+            return None
+        try:
+            parsed = date.fromisoformat(value)
+        except ValueError:
+            log.warning("Ignoring malformed deadline from model: %r", value)
+            return None
+        if parsed < date.today():
+            log.warning("Ignoring past deadline from model: %s", value)
+            return None
+        return value
 
 
 def enrich_with_ollama(client: ollama.Client, model: str, email: Email) -> TaskFields:

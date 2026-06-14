@@ -14,6 +14,7 @@ log = logging.getLogger(__name__)
 
 _UPLOAD_URL = "https://api.todoist.com/api/v1/uploads"
 _LABEL = "mail2task"
+_UPLOAD_TIMEOUT = 60  # seconds; never block the loop on a stalled upload
 
 
 def build_comment(email: Email) -> str:
@@ -33,6 +34,7 @@ def _upload_file(api_token: str, att: EmailAttachment) -> Attachment:
         _UPLOAD_URL,
         headers={"Authorization": f"Bearer {api_token}"},
         files={"file": (att.filename, att.data, att.content_type)},
+        timeout=_UPLOAD_TIMEOUT,
     )
     resp.raise_for_status()
     data = resp.json()
