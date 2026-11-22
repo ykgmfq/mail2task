@@ -31,6 +31,10 @@ jobs:
       - name: Derive image tags
         id: meta
         uses: docker/metadata-action@v6
+        env:
+          # The pushed image is an index (it carries provenance attestations),
+          # and GHCR reads the package description from the index annotations.
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
         with:
           images: ghcr.io/${{ github.repository_owner }}/mail2task
           tags: |
