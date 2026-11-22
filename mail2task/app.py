@@ -11,7 +11,7 @@ import ollama
 from pydantic import HttpUrl, ValidationError
 from todoist_api_python.api import TodoistAPI
 
-from . import mail
+from . import health, mail
 from .enrich import enrich_with_ollama
 from .models import Config
 from .tasks import add_attachment_comments, build_description, create_task
@@ -148,6 +148,7 @@ def poll_loop(ctx: Context, stop: threading.Event, interval: int) -> None:
         try:
             process_mailbox(ctx)
             failures = 0
+            health.beat()
         except Exception:
             # Survive transient IMAP / network errors; back off so a sustained
             # outage (e.g. Ollama down) does not hammer the dependency or logs.
@@ -167,6 +168,7 @@ def main() -> None:
     signal.signal(signal.SIGTERM, lambda *_: stop.set())  # clean container shutdown
     signal.signal(signal.SIGINT, lambda *_: stop.set())
 
+    health.beat()  # grace period until the first cycle completes
     log.info("mail2task started; polling every %ds", config.poll_interval)
     poll_loop(ctx, stop, config.poll_interval)
     log.info("mail2task stopped")

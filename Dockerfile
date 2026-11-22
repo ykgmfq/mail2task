@@ -29,4 +29,8 @@ LABEL org.opencontainers.image.title="mail2task" \
       org.opencontainers.image.revision="${REVISION}" \
       org.opencontainers.image.created="${CREATED}"
 
+# The poll loop refreshes a heartbeat file after every successful cycle; see mail2task/health.py.
+HEALTHCHECK --interval=60s --timeout=5s --start-period=30s --retries=3 \
+  CMD ["python", "-m", "mail2task.health"]
+
 ENTRYPOINT ["mail2task"]
